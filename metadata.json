@@ -1,0 +1,6 @@
+{
+  "name": "Line Number Cleaner",
+  "description": "A utility to quickly strip line numbers and prefixes from pasted code snippets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
