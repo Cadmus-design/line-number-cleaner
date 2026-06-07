@@ -1,21 +1,25 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Clipboard, 
-  Check, 
-  Trash2, 
-  Settings, 
-  Code, 
-  Sparkles, 
-  History, 
-  Copy, 
-  RefreshCw, 
-  FileCode, 
-  ChevronRight, 
-  HelpCircle, 
-  Scissors, 
+import {
+  Clipboard,
+  Check,
+  Trash2,
+  Settings,
+  Code,
+  Sparkles,
+  History,
+  Copy,
+  RefreshCw,
+  FileCode,
+  ChevronRight,
+  HelpCircle,
+  Scissors,
   ArrowRight,
-  Info
+  Info,
+  Upload,
+  Download,
+  FileJson,
+  ArrowRightLeft
 } from 'lucide-react';
 import { PRESET_EXAMPLES, PRESET_TEXT_EXAMPLES } from './data/examples';
 import { cleanCode, purifyText } from './utils/cleaner';
@@ -58,10 +62,14 @@ function escapeHtml(text: string): string {
 
 export default function App() {
   // Application states
-  const [activeTab, setActiveTab] = useState<'code' | 'text'>(() => {
+  const [activeTab, setActiveTab] = useState<'code' | 'text' | 'tsv'>(() => {
     const saved = localStorage.getItem('codestripper_active_tab');
-    return (saved === 'code' || saved === 'text') ? saved : 'code';
+    return (saved === 'code' || saved === 'text' || saved === 'tsv') ? saved : 'code';
   });
+  const [tsvInput, setTsvInput] = useState('');
+  const [tsvOutput, setTsvOutput] = useState('');
+  const [tsvError, setTsvError] = useState<string | null>(null);
+  const tsvFileInputRef = useRef<HTMLInputElement>(null);
   const [inputText, setInputText] = useState('');
   const [settings, setSettings] = useState<CleanerSettings>(() => {
     const saved = localStorage.getItem('code_cleaner_settings');
@@ -140,17 +148,42 @@ export default function App() {
     }
   }, [settings.pattern, settings.customRegex]);
 
+  const convertTsvToJson = () => {
+    if (!tsvInput.trim()) { setTsvOutput(''); setTsvError('請輸入 TSV 資料。'); return; }
+    try {
+      const lines = tsvInput.trim().split('\n');
+      const headers = lines[0].split('\t').map(h => h.trim());
+      if (headers.length === 0 || (headers.length === 1 && headers[0] === ''))
+        throw new Error('找不到欄位標題。');
+      const result = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split('\t');
+        if (cols.length === 1 && cols[0].trim() === '') continue;
+        const obj: Record<string, string> = {};
+        headers.forEach((h, j) => { obj[h] = cols[j] !== undefined ? cols[j].trim() : ''; });
+        result.push(obj);
+      }
+      setTsvOutput(JSON.stringify(result, null, 2));
+      setTsvError(null);
+    } catch (err: any) {
+      setTsvError(err.message || '轉換錯誤');
+      setTsvOutput('');
+    }
+  };
+
   // Real-time Clean Calculation
   const result = useMemo(() => {
     if (activeTab === 'code') {
       return cleanCode(inputText, settings);
-    } else {
+    } else if (activeTab === 'text') {
       const cleaned = purifyText(inputText, textSettings);
       return {
         cleanedText: cleaned,
         detectedPattern: 'Text Purify',
         detectionConfidence: undefined
       };
+    } else {
+      return { cleanedText: '', detectedPattern: '', detectionConfidence: undefined };
     }
   }, [inputText, settings, textSettings, activeTab]);
 
@@ -382,12 +415,9 @@ export default function App() {
         <div className="flex-1 flex flex-col gap-6">
 
           {/* Segmented Tab Control */}
-          <div className="flex bg-[#0b1016] p-1 rounded-lg border border-elegant-border max-w-md mx-auto w-full shadow-lg">
+          <div className="flex bg-[#0b1016] p-1 rounded-lg border border-elegant-border max-w-2xl mx-auto w-full shadow-lg">
             <button
-              onClick={() => {
-                setActiveTab('code');
-                setInputText('');
-              }}
+              onClick={() => { setActiveTab('code'); setInputText(''); }}
               className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-xs font-bold tracking-wide transition-all cursor-pointer ${
                 activeTab === 'code'
                   ? 'bg-gradient-to-r from-elegant-cyan to-elegant-teal text-elegant-dark shadow-md'
@@ -398,10 +428,7 @@ export default function App() {
               <span>CLI 程式行號清除</span>
             </button>
             <button
-              onClick={() => {
-                setActiveTab('text');
-                setInputText('');
-              }}
+              onClick={() => { setActiveTab('text'); setInputText(''); }}
               className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-xs font-bold tracking-wide transition-all cursor-pointer ${
                 activeTab === 'text'
                   ? 'bg-gradient-to-r from-elegant-cyan to-elegant-teal text-elegant-dark shadow-md'
@@ -411,10 +438,122 @@ export default function App() {
               <Sparkles className="w-4 h-4" />
               <span>AI 文本空白淨化</span>
             </button>
+            <button
+              onClick={() => { setActiveTab('tsv'); setInputText(''); }}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-xs font-bold tracking-wide transition-all cursor-pointer ${
+                activeTab === 'tsv'
+                  ? 'bg-gradient-to-r from-elegant-cyan to-elegant-teal text-elegant-dark shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <FileJson className="w-4 h-4" />
+              <span>TSV → JSON</span>
+            </button>
           </div>
           
+          {/* TSV → JSON Panel */}
+          {activeTab === 'tsv' && (
+            <div className="flex flex-col gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                {/* TSV Input */}
+                <div className="flex flex-col bg-elegant-card border border-elegant-border rounded-xl overflow-hidden shadow-2xl">
+                  <div className="px-5 py-3.5 bg-elegant-border/30 border-b border-elegant-border flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-elegant-teal" />
+                      <span className="text-xs font-bold uppercase tracking-widest font-display text-elegant-teal">TSV 輸入</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="file" accept=".tsv,.txt,.csv" className="hidden" ref={tsvFileInputRef}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = (ev) => { setTsvInput(ev.target?.result as string); setTsvError(null); };
+                          reader.readAsText(file);
+                          if (tsvFileInputRef.current) tsvFileInputRef.current.value = '';
+                        }}
+                      />
+                      <button onClick={() => tsvFileInputRef.current?.click()}
+                        className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-elegant-cyan bg-elegant-cyan/5 border border-elegant-cyan/30 rounded hover:bg-elegant-cyan hover:text-elegant-dark transition-all cursor-pointer">
+                        <Upload className="w-3 h-3" />
+                        <span>上傳檔案</span>
+                      </button>
+                      {tsvInput && (
+                        <button onClick={() => { setTsvInput(''); setTsvOutput(''); setTsvError(null); }}
+                          className="p-1 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <textarea
+                    value={tsvInput}
+                    onChange={(e) => { setTsvInput(e.target.value); setTsvError(null); }}
+                    placeholder={"貼上 TSV 資料...\nid\tname\tage\n1\tAlice\t28\n2\tBob\t34"}
+                    className="w-full flex-1 p-5 bg-transparent outline-none font-mono text-sm leading-relaxed text-slate-300 resize-none min-h-[350px]"
+                  />
+                  <div className="px-5 py-2.5 bg-elegant-dark/85 border-t border-elegant-border flex justify-between items-center text-[10px] font-mono text-slate-400 select-none">
+                    <span>行數: <strong className="text-white">{tsvInput.split('\n').filter(Boolean).length}</strong></span>
+                    <span>大小: <strong className="text-white">{tsvInput.length}</strong> 字元</span>
+                  </div>
+                </div>
+
+                {/* JSON Output */}
+                <div className="flex flex-col bg-elegant-dark border border-elegant-border rounded-xl overflow-hidden shadow-2xl">
+                  <div className="px-5 py-3.5 bg-[#1F2833]/50 border-b border-elegant-border flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-elegant-cyan" />
+                      <span className="text-xs font-bold uppercase tracking-widest font-display text-elegant-cyan">JSON 輸出</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {tsvOutput && (
+                        <>
+                          <button onClick={() => navigator.clipboard.writeText(tsvOutput)}
+                            className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-slate-400 bg-elegant-dark border border-elegant-border rounded hover:bg-elegant-border transition-all cursor-pointer">
+                            <Copy className="w-3 h-3" />複製
+                          </button>
+                          <button onClick={() => {
+                            const blob = new Blob([tsvOutput], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url; a.download = 'converted.json';
+                            document.body.appendChild(a); a.click();
+                            document.body.removeChild(a); URL.revokeObjectURL(url);
+                          }} className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-white bg-elegant-teal rounded hover:bg-elegant-cyan hover:text-elegant-dark transition-all cursor-pointer">
+                            <Download className="w-3 h-3" />下載
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <textarea
+                    value={tsvOutput}
+                    readOnly
+                    placeholder="// 轉換後的 JSON 會顯示在此..."
+                    className="w-full flex-1 p-5 bg-transparent outline-none font-mono text-sm leading-relaxed text-elegant-cyan resize-none select-all cursor-text min-h-[350px]"
+                  />
+                  <div className="px-5 py-2.5 bg-elegant-card border-t border-elegant-border flex justify-between items-center text-[10px] font-mono text-slate-400 select-none">
+                    <span>筆數: <strong className="text-white">{tsvOutput ? JSON.parse(tsvOutput || '[]').length : 0}</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              {tsvError && (
+                <div className="p-3 bg-rose-950/40 border border-rose-500/30 text-rose-400 rounded-lg text-sm text-center">{tsvError}</div>
+              )}
+
+              <div className="flex justify-center">
+                <button onClick={convertTsvToJson}
+                  className="flex items-center gap-2 px-8 py-3 text-base font-bold text-elegant-dark bg-gradient-to-r from-elegant-cyan to-elegant-teal rounded-full shadow-lg shadow-elegant-cyan/20 hover:shadow-elegant-cyan/40 transition-all cursor-pointer">
+                  <ArrowRightLeft className="w-5 h-5" />
+                  轉換為 JSON
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Preset Buttons Panel (Cyan and Teal details) */}
-          <section className="bg-elegant-card border border-elegant-border rounded-xl p-4.5 shadow-xl shadow-black/40">
+          <section className={`bg-elegant-card border border-elegant-border rounded-xl p-4.5 shadow-xl shadow-black/40 ${activeTab === 'tsv' ? 'hidden' : ''}`}>
             <span className="text-xs font-mono font-bold text-elegant-teal block mb-3 flex items-center gap-1.5 uppercase tracking-wide">
               <Sparkles className="w-3.5 h-3.5 text-elegant-cyan" />
               {activeTab === 'code' ? '快速載入典型 CLI 格式範例：' : '快速載入典型 AI 亂空白文本範例：'}
@@ -438,7 +577,7 @@ export default function App() {
           </section>
 
           {/* TWO TEXTAREAS WITH WORKSPACE */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+          {activeTab !== 'tsv' && <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
             
             {/* Input card */}
             <div className="flex flex-col bg-elegant-card border border-elegant-border rounded-xl overflow-hidden focus-within:border-elegant-teal/60 transition-colors shadow-2xl">
@@ -569,10 +708,10 @@ export default function App() {
               </div>
             </div>
 
-          </div>
+          </div>}
 
           {/* DOCK OPTIONS PANEL (Styled in Dark Elegant) */}
-          <section className="bg-elegant-card border border-elegant-border rounded-xl p-6 shadow-xl">
+          {activeTab !== 'tsv' && <section className="bg-elegant-card border border-elegant-border rounded-xl p-6 shadow-xl">
             <div className="flex items-center justify-between border-b border-elegant-border pb-4 mb-6 select-none">
               <div className="flex items-center gap-2">
                 <Settings className="w-5 h-5 text-elegant-cyan" />
@@ -1174,10 +1313,10 @@ export default function App() {
 
               </div>
             )}
-          </section>
+          </section>}
 
           {/* Sticky Elegant Action Trigger Block */}
-          {inputText && (
+          {activeTab !== 'tsv' && inputText && (
             <div className="bg-[#121820] border-t-4 border-elegant-cyan p-6 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl select-none">
               <div className="flex flex-col text-left">
                 <span className="text-[10px] text-elegant-teal uppercase font-bold tracking-wider">
