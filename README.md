@@ -1,27 +1,33 @@
-# Line Number Cleaner
+# CODESTRIPPER v1.4
 
-A browser-based tool to strip line numbers and clean up copied code or text.
+A browser-based tool suite for cleaning up code and text. Runs entirely client-side — no API key required.
 
 ## Features
 
-**Code Cleaner**
-- Remove line numbers in 6 formats: `1:`, `1.`, `1 |`, `[1]`, `(1)`, `1 ` (raw)
-- Auto-detect pattern from pasted content
-- Custom regex support
-- Options: trim lines, remove blank lines, preserve indent, strip markdown fences, strip bullets
+**CLI 程式行號清除 (Code Cleaner)**
+- Remove line numbers in 7 formats: `1:`, `1.`, `01 |`, `[1]`, `(1)`, `1` (raw), or custom regex
+- Auto-detect pattern with confidence scoring
+- Options: trim lines, remove blank lines, preserve indent, strip markdown fences, strip bullets/quotes
 - Paste-to-clean + auto-copy workflow
+- Configurable newline copy format: Enter / Double Enter / Shift+Enter
 
-**Text Purifier**
-- Remove leading/trailing spaces
+**AI 文本空白淨化 (Text Purifier)**
+- Remove leading/trailing spaces per line
 - Collapse multiple blank lines
 - Remove mid-paragraph line breaks (useful for PDF copy-paste)
 - Normalize whitespace between Chinese characters
-- Strip emoji or bullet symbols
+- Strip emoji or bullet/quote symbols
+- Configurable newline copy format
+
+**TSV → JSON Converter**
+- Paste or upload a `.tsv` / `.txt` / `.csv` file
+- Converts tab-separated data to a JSON array of objects using the first row as keys
+- Copy to clipboard or download as `converted.json`
 
 **UX**
-- History — keeps last 20 operations, click to restore
-- Preset examples to test each pattern
-- Keyboard shortcut: Enter to clean, Shift+Enter for newline (configurable)
+- History sidebar — keeps last 50 operations, click to restore
+- Preset examples for each mode
+- All processing is local — nothing leaves your browser
 
 ## Run Locally
 
@@ -33,11 +39,9 @@ npm run dev
 # Opens at http://localhost:3000
 ```
 
-No API key required — runs entirely in the browser.
-
 ## Tech Stack
 
 - React 19 + TypeScript
 - Vite + Tailwind CSS v4
-- Framer Motion (motion/react)
+- motion/react (Framer Motion)
 - Lucide icons

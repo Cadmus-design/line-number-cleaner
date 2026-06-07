@@ -368,7 +368,7 @@ export default function App() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xl font-bold tracking-tight text-white font-display">
-                  CODESTRIPPER <span className="text-elegant-cyan">v1.3</span>
+                  CODESTRIPPER <span className="text-elegant-cyan">v1.4</span>
                 </span>
                 <span className="text-[10px] tracking-wider uppercase font-mono bg-elegant-teal/10 text-elegant-teal border border-elegant-teal/30 px-2 py-0.5 rounded">
                   Gemini Tool Suite
